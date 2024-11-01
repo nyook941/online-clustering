@@ -1,8 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.metrics import confusion_matrix
-from scipy.stats import mode
+from sklearn.metrics import confusion_matrix, accuracy_score
+from scipy.optimize import linear_sum_assignment
 import numpy as np
 
 class ART2Clusterer:
@@ -71,98 +71,60 @@ class ART2Clusterer:
         else:
             self.create_new_cluster(x, i)
 
-    def calc_confusion_matrix(self, ground_truth_csv):
-        df = pd.read_csv(ground_truth_csv)
-        ground_truth_indices = df.iloc[:, 0].values
-        ground_truth_labels = df['class_id'].values
+    def calc_accuracy(self, ground_truth_csv):
+        true_labels, cluster_labels, _ = self._get_labels_and_times(ground_truth_csv)
 
-        y_true = []
-        y_pred = []
-
-        for i in range(self.n_clusters):
-            cluster_size = self.cluster_sizes[i].item()
-            if cluster_size > 0:
-                data_i = self.cluster_data_indicies[i, 1:cluster_size+1].cpu().numpy()
-
-                ground_truth = ground_truth_labels[np.isin(ground_truth_indices, data_i)]
-
-                if len(ground_truth) > 0:
-                    most_common_label = mode(ground_truth)[0]
-
-                    y_true.extend(ground_truth)
-                    y_pred.extend([most_common_label] * len(ground_truth))
+        conf_matrix = confusion_matrix(true_labels, cluster_labels)
         
-        conf_matrix = confusion_matrix(y_true, y_pred)
-        return conf_matrix     
+        row_ind, col_ind = linear_sum_assignment(-conf_matrix)
+        mapping = {col: row for row, col in zip(row_ind, col_ind)}
 
-    def calc_accuracy(self, conf_matrix):
-        correct_predictions = np.trace(conf_matrix)
-        total_predictions = np.sum(conf_matrix)
-        accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
-        return accuracy
+        mapped_labels = [mapping[cluster] for cluster in cluster_labels]
+        accuracy = accuracy_score(true_labels, mapped_labels)
+        
+        return conf_matrix, accuracy
     
     def plot_truth_vs_time(self, ground_truth_csv):
-        # Use the helper function to get sorted y_true, y_pred, and times
         y_true, y_pred, times = self._get_labels_and_times(ground_truth_csv)
 
-        # Create side-by-side subplots
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
         
-        # Plot ground truth on the first subplot
         ax1.scatter(times, y_true, color="blue", alpha=0.6, s=1)
         ax1.set_title("Ground Truth Labels")
         ax1.set_xlabel("Time (seconds)")
         ax1.set_ylabel("Class ID")
         
-        # Plot predicted labels on the second subplot
         ax2.scatter(times, y_pred, color="red", alpha=0.6, s=1)
         ax2.set_title("Predicted Labels")
         ax2.set_xlabel("Time (seconds)")
 
-        # Adjust layout and show plot
         plt.tight_layout()
         plt.show()
 
     def _get_labels_and_times(self, ground_truth_csv):
-        # Load ground truth data
         df = pd.read_csv(ground_truth_csv)
-        indices = df.iloc[:, 0].values  # First unnamed column as indices
-        class_ids = df['class_id'].values  # Ground truth labels
-        timestamps = df['timestamp'].values  # Timestamps in seconds
+        ground_truth_indices = df.iloc[:, 0].values
+        ground_truth_labels = df['class_id'].values
+        timestamps = df['timestamp'].values
 
-        # Calculate the adjusted time with the formula `actual_time = class_id * 120 + timestamp`
-        actual_times = class_ids * 120 + timestamps
+        actual_times = ground_truth_labels * 120 + timestamps
 
-        y_true = []
-        y_pred = []
-        unique_times = []
+        cluster_sizes = self.cluster_sizes.cpu().numpy()
+        cluster_data_indices = [index.cpu().numpy() for index in self.cluster_data_indicies]
 
-        # Map each cluster to the most common ground truth label
-        for cluster_idx in range(self.n_clusters):
-            cluster_size = self.cluster_sizes[cluster_idx].item()
-            if cluster_size > 0:
-                data_indices = self.cluster_data_indicies[cluster_idx, 1:cluster_size+1].cpu().numpy()
-                
-                # Get ground truth labels and timestamps for points in this cluster
-                cluster_ground_truth = class_ids[np.isin(indices, data_indices)]
-                cluster_timestamps = actual_times[np.isin(indices, data_indices)]
+        valid_clusters = [i for i, size in enumerate(cluster_sizes) if size > 0]
 
-                if len(cluster_ground_truth) > 0:
-                    # Determine the most common ground truth label for this cluster
-                    most_common_label = mode(cluster_ground_truth)[0]
-                    
-                    # Extend the lists for ground truth, predicted labels, and timestamps
-                    y_true.extend(cluster_ground_truth)
-                    y_pred.extend([most_common_label] * len(cluster_ground_truth))
-                    unique_times.extend(cluster_timestamps)
+        cluster_labels = []
+        true_labels = []
 
-        # Sort by time for a smoother plot
-        sorted_indices = np.argsort(unique_times)
-        sorted_times = np.array(unique_times)[sorted_indices]
-        sorted_y_true = np.array(y_true)[sorted_indices]
-        sorted_y_pred = np.array(y_pred)[sorted_indices]
+        for cluster_i in valid_clusters:
+            indices = cluster_data_indices[cluster_i][1:cluster_sizes[cluster_i]+1]  # Skip the mean
+            for i in indices:
+                true_class = ground_truth_labels[ground_truth_indices == i].item()
+                true_labels.append(true_class)
+                cluster_labels.append(cluster_i)
 
-        return sorted_y_true, sorted_y_pred, sorted_times
+        return np.sort(true_labels), np.sort(cluster_labels), np.sort(actual_times)
     
 class SmoothingART2Clusterer(ART2Clusterer):
     def __init__(self, vigilance, n_features, n_clusters=10, max_samples_per_cluster=4000, buffer_size=5):
