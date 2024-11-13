@@ -7,10 +7,10 @@ import numpy as np
 import ast
 
 class ART2Clusterer:
-    def __init__(self, vigilance, n_features, time_series_index, max_clusters = 100):
+    def __init__(self, vigilance, n_features, time_series_index, max_clusters = 100, predicted_filename_prefix="time_series"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.predicted_filename = f"predicted_{time_series_index}.csv"
+        self.predicted_filename = f"output/{predicted_filename_prefix}_{time_series_index}/predicted_{time_series_index}.csv"
         self.df = pd.DataFrame(columns=['timestamp', 'predicted', 'ground_truth', 'features'])
         self.df.to_csv(self.predicted_filename)
 
@@ -37,9 +37,14 @@ class ART2Clusterer:
         class_id = datapoint['class_id']
         timestamp = datapoint['timestamp']
 
-        mfccs = ast.literal_eval(datapoint['mfccs'])
-        mfsc = ast.literal_eval(datapoint['mfsc'])
-        features = torch.tensor(mfccs + mfsc).to(self.device)
+        features = None
+        if 'mfccs' in datapoint:
+            mfccs = ast.literal_eval(datapoint['mfccs'])
+            mfsc = ast.literal_eval(datapoint['mfsc'])
+            features = torch.tensor(mfccs + mfsc).to(self.device)
+        else:
+            features = ast.literal_eval(datapoint['features'])
+            features =  torch.tensor(features).to(self.device)
 
         if not self.cluster_sizes:
             self._initialize_first_cluster(class_id, timestamp, features)
