@@ -29,7 +29,7 @@ class AudioProcessor:
 
     def create_frames(self, waveform, class_id):
         frame_size = int((self.frame_size_ms * self.sample_rate) / 1000)
-        hop_length = int((self.frame_size_ms * self.hop_length_ratio * self.sample_rate) / 1000)
+        hop_length = int((self.frame_size_ms * (1-self.hop_length_ratio) * self.sample_rate) / 1000)
         
         num_frames = (waveform.shape[0] - frame_size) // hop_length + 1
         frames = torch.zeros(num_frames, frame_size).to(self.device)
@@ -41,6 +41,7 @@ class AudioProcessor:
             timestamps[i] = timestamp
 
         class_ids = np.full((num_frames,), class_id)
+
         if self.frames is None:
             self.frames = frames
             self.class_ids = class_ids

@@ -6,21 +6,21 @@ import torchaudio.transforms as transforms
 import matplotlib.pyplot as plt
 
 class FeatureExtractor:
-    def __init__(self, n_fft=512, n_mfcc=13, n_mels=40, sample_rate=48000):
+    def __init__(self, hop_ratio=0.1, n_fft=512, n_mfcc=13, n_mels=40, sample_rate=48000):
         self.sample_rate = sample_rate
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.mfcc_transform = transforms.MFCC(
             sample_rate=sample_rate,
             n_mfcc=n_mfcc,
-            melkwargs={'n_fft': n_fft, "hop_length": int(150 * (1 - 0.1) * sample_rate / 1000), "n_mels": n_mels}
+            melkwargs={'n_fft': n_fft, "hop_length": int(150 * (1 - hop_ratio) * sample_rate / 1000), "n_mels": n_mels}
         ).to(self.device)
         self.mfcc_features = None
 
         self.melspectrogram_transform = transforms.MelSpectrogram(
             sample_rate=self.sample_rate,
             n_fft=n_fft,
-            hop_length=int(150 * (1 - 0.1) * sample_rate / 1000),
+            hop_length=int(150 * (1 - hop_ratio) * sample_rate / 1000),
             n_mels=n_mels
         ).to(self.device)
         self.melspectrogram_features = None

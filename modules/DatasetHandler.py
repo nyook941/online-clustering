@@ -1,9 +1,8 @@
 import os
 import shutil
 import torch
-import math
 import pandas as pd
-import ast
+import random
 
 class DatasetHandler:
     def __init__(self, class_ids, timestamps, mfcc_features, mel_features, n_features):
@@ -62,19 +61,44 @@ class DatasetHandler:
         df = pd.DataFrame(data)
         df.to_csv(self.output_dir + "/" + filename, index=False)
 
-    def shuffle_data(self, filename):
-        filepath = os.path.join(self.output_dir, filename)
-        df = pd.read_csv(filepath)
-        df = df.sample(frac=1).reset_index(drop=True)
-        return df
-
-    def generate_time_series(self, frame_size_ms, hop_ratio, n_time_series=5, time_series_ms=120000, filename="selected_features.csv", output_folder = "time_series"):
-        hop_length_ms = frame_size_ms * hop_ratio
-        num_frames = math.ceil(time_series_ms / hop_length_ms)
-
+    def generate_time_series(self, n_time_series=5, time_series_duration=120, filename="selected_features.csv", output_folder = "time_series"):
         for i in range(n_time_series):
-            df = self.shuffle_data(filename)
-            selected_df = df.iloc[:num_frames]
+            duration_sum = 0
+            remaining_classes = [0, 1, 2]
+            df = pd.read_csv(self.output_dir + "/" + filename)
+            time_series_data = pd.DataFrame(columns=df.columns)
+
+            while duration_sum < time_series_duration:
+                # choose class
+                if not remaining_classes:
+                    remaining_classes = [0, 1, 2]
+                chosen_class = random.choice(remaining_classes)
+                remaining_classes.remove(chosen_class)
+
+                # choose time duration for that class
+                time_duration = 15 if duration_sum + 15 > time_series_duration else random.randint(15, 30)
+                class_data = df[df['class_id'] == chosen_class]
+                selected_rows = class_data[(class_data['timestamp'] >= duration_sum & 
+                                            (class_data['timestamp'] < duration_sum + time_duration))]
+                
+                if selected_rows.empty:
+                    continue
+
+                time_series_data = pd.concat([time_series_data, selected_rows], ignore_index=True)
+                duration_sum += time_duration
 
             os.makedirs(self.output_dir + f"/{output_folder}_{i}")
-            selected_df.to_csv(self.output_dir + f'/{output_folder}_{i}/ground_truth_{i}.csv', index=False)
+            time_series_data.to_csv(self.output_dir + f'/{output_folder}_{i}/ground_truth_{i}.csv', index=False)
+
+            
+
+        
+        # hop_length_ms = frame_size_ms * hop_ratio
+        # num_frames = math.ceil(time_series_ms / hop_length_ms)
+
+        # for i in range(n_time_series):
+        #     df = self.shuffle_data(filename)
+        #     selected_df = df.iloc[:num_frames]
+
+        #     os.makedirs(self.output_dir + f"/{output_folder}_{i}")
+        #     selected_df.to_csv(self.output_dir + f'/{output_folder}_{i}/ground_truth_{i}.csv', index=False)
