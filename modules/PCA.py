@@ -31,7 +31,7 @@ class PCA:
         return (self.features - means) / std
     
     def covariance_matrix(self):
-        return (self.standardized_features.T @ self.standardized_features) / (self.standardized_features.shape[0] - 1)
+        return (self.features.T @ self.features) / (self.features.shape[0] - 1)
 
     def eigen(self):
         eig_vals, eig_vecs = torch.linalg.eig(self.covariance_matrix)
@@ -48,4 +48,10 @@ class PCA:
         return self.eig_vectors[:, :k]
     
     def project_data(self):
-        return torch.matmul(self.standardized_features, self.principle_components)
+        projected = torch.matmul(self.features, self.principle_components)
+        
+        projected_min = projected.min(dim=0).values
+        projected_max = projected.max(dim=0).values
+        normalized_projected = (projected - projected_min) / (projected_max - projected_min)
+        
+        return normalized_projected
