@@ -61,7 +61,7 @@ class DatasetHandler:
         df = pd.DataFrame(data)
         df.to_csv(self.output_dir + "/" + filename, index=False)
 
-    def generate_time_series(self, read_filename, write_filename, n_time_series=5, time_series_duration=120, output_folder = "time_series"):
+    def generate_time_series(self, read_filename, write_filename, n_time_series=5, time_series_duration=120, output_folder="time_series"):
         for i in range(n_time_series):
             duration_sum = 0
             remaining_classes = [0, 1, 2]

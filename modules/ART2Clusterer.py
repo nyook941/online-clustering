@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix
 from scipy.optimize import linear_sum_assignment
 import ast
 import numpy as np

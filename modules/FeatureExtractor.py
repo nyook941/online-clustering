@@ -76,7 +76,7 @@ class FeatureExtractor:
         plt.imshow(mfcc_data.T, aspect='auto', origin='lower', cmap='viridis')
         plt.colorbar(label='Amplitude')
         plt.xlabel('Frames')
-        plt.ylabel('MFCCs')
+        plt.ylabel('MFCC Coefficients')
         plt.title('MFCC Heatmap')
         plt.show()
 

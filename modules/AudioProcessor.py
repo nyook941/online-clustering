@@ -36,7 +36,7 @@ class AudioProcessor:
         timestamps = np.zeros(num_frames)
         for i in range(num_frames):
             start = i * hop_length
-            timestamp = i * hop_length / self.sample_rate
+            timestamp = start / self.sample_rate
             frames[i, :] = waveform[start:start + frame_size]
             timestamps[i] = timestamp
 
