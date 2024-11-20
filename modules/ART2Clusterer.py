@@ -7,10 +7,12 @@ import ast
 import numpy as np
 
 class ART2Clusterer:
-    def __init__(self, vigilance, n_features, time_series_index, max_clusters = 100, predicted_filename_prefix="time_series"):
+    def __init__(self, vigilance, n_features, time_series_index, max_clusters = 100, predicted_filename_prefix="time_series", pca=False):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.predicted_filename = f"output/no_pca/{predicted_filename_prefix}_{time_series_index}/predicted_{time_series_index}.csv"
+        pca_folder = "pca" if pca else "no_pca"
+        self.predicted_filename = f"output/{pca_folder}/{predicted_filename_prefix}_{time_series_index}/predicted_{time_series_index}.csv"
+
         self.df = pd.DataFrame(columns=['timestamp', 'predicted', 'ground_truth', 'features'])
         self.df.to_csv(self.predicted_filename)
 
@@ -18,7 +20,7 @@ class ART2Clusterer:
         
         self.cluster_means = torch.zeros(max_clusters, n_features).to(self.device)
         self.cluster_sizes = []
-        self.class_mappings = {}
+        self.class_mappings = {}        
 
     def add_to_csv(self, timestamp, predicted, ground_truth_id, features):
         features_list = features.squeeze().tolist()
@@ -134,8 +136,8 @@ class ART2Clusterer:
         plt.show()
 
 class ART2ClustererSmoothing(ART2Clusterer):
-    def __init__(self, vigilance, n_features, time_series_index, max_clusters=100, predicted_filename_prefix="time_series", buffer_size=5):
-        super().__init__(vigilance, n_features, time_series_index, max_clusters, predicted_filename_prefix)
+    def __init__(self, vigilance, n_features, time_series_index, max_clusters=100, predicted_filename_prefix="time_series", buffer_size=5, pca=False):
+        super().__init__(vigilance, n_features, time_series_index, max_clusters, predicted_filename_prefix, pca)
 
         # The first two indicies will be used to store class_id and timestamp, the rest of the indicies are features
         self.buffer = torch.zeros(buffer_size, n_features+2).to(self.device)
